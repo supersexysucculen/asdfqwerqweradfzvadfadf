@@ -1,9 +1,29 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-<title>StudyAI — 멀티미디어소프트웨어개론</title>
+<title>StudyAI</title>
+
+<!-- 피드백 반영: PWA 설치 유도 -->
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="StudyAI">
+<meta name="theme-color" content="#0C0E1A">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+</script>
+<!-- /피드백 반영: PWA 설치 유도 -->
+
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <style>
 :root {
@@ -100,22 +120,55 @@ html, body {
   flex-shrink: 0;
 }
 
+/* 피드백 반영: 레벨 시스템 */
 .xp-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  background: var(--warn-dim);
+  border: 1px solid rgba(249,188,74,0.25);
+  border-radius: 12px;
+  padding: 5px 10px 5px 12px;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+.xp-chip-top {
   display: flex;
   align-items: center;
   gap: 5px;
-  background: var(--warn-dim);
-  border: 1px solid rgba(249,188,74,0.25);
-  border-radius: 99px;
-  padding: 5px 13px;
-  flex-shrink: 0;
+  width: 100%;
+  justify-content: space-between;
 }
-.xp-chip .xp-val {
-  font-size: 13px;
-  font-weight: 800;
+.xp-level-badge {
+  font-size: 11px;
+  font-weight: 900;
   color: var(--warn);
   letter-spacing: -0.3px;
+  line-height: 1;
 }
+.xp-val {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text3);
+  letter-spacing: -0.2px;
+  line-height: 1;
+}
+.xp-bar-track {
+  width: 100%;
+  height: 3px;
+  background: rgba(249,188,74,0.15);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.xp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--warn), #FFDA6A);
+  border-radius: 99px;
+  transition: width 0.55s cubic-bezier(0.34,1.56,0.64,1);
+  width: 0%;
+}
+/* /피드백 반영: 레벨 시스템 */
 
 .prog-row {
   display: flex;
@@ -509,7 +562,7 @@ html, body {
   pointer-events: none;
   transition: opacity 0.45s cubic-bezier(0.22,1,0.36,1);
 }
-.s1-done.show { opacity: 1; pointer-events: all; }
+.s1-done.show { opacity: 1; pointer-events: auto; }
 .done-emoji { font-size: 60px; line-height: 1; animation: bounce-in 0.65s cubic-bezier(0.34,1.56,0.64,1) both; }
 @keyframes bounce-in { 0% { transform: scale(0); opacity:0; } 100% { transform: scale(1); opacity:1; } }
 .done-title { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
@@ -920,7 +973,227 @@ html, body {
 }
 .toast.up { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-::-webkit-scrollbar { width: 0; height: 0; }
+
+/* ══════════════════════════════════════════
+   피드백 반영: 레벨 시스템 — 레벨업 모달
+══════════════════════════════════════════ */
+#levelup-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#levelup-modal.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+.lv-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(12,14,26,0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.lv-card {
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(145deg, var(--surface), var(--surface2));
+  border: 1.5px solid rgba(249,188,74,0.4);
+  border-radius: 28px;
+  padding: 36px 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(320px, 88vw);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(249,188,74,0.12);
+  transform: scale(0.7) translateY(30px);
+  transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1);
+}
+#levelup-modal.show .lv-card {
+  transform: scale(1) translateY(0);
+}
+.lv-glow-ring {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(249,188,74,0.25) 0%, transparent 70%);
+  border: 2px solid rgba(249,188,74,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  animation: lv-ring-pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes lv-ring-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(249,188,74,0.3); }
+  50%      { box-shadow: 0 0 0 16px rgba(249,188,74,0); }
+}
+.lv-up-label {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--warn);
+  opacity: 0.8;
+}
+.lv-title {
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  background: linear-gradient(135deg, var(--warn), #FFDA6A, var(--warn));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+  line-height: 1;
+}
+.lv-sub {
+  font-size: 14px;
+  color: var(--text2);
+  text-align: center;
+  font-weight: 600;
+  margin-top: -4px;
+}
+.lv-xp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--warn-dim);
+  border: 1px solid rgba(249,188,74,0.2);
+  border-radius: 99px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warn);
+}
+.btn-lv-close {
+  width: 100%;
+  height: 50px;
+  background: linear-gradient(135deg, var(--warn), #FFDA6A);
+  color: #1a1000;
+  border: none;
+  border-radius: 16px;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  touch-action: manipulation;
+  transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
+}
+.btn-lv-close:active { transform: scale(0.96); }
+
+/* Canvas confetti */
+#confetti-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 8999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#confetti-canvas.show { opacity: 1; }
+
+/* ══════════════════════════════════════════
+   피드백 반영: PWA 설치 유도 — 설치 배너
+══════════════════════════════════════════ */
+#pwa-banner {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  width: min(360px, calc(100vw - 32px));
+  background: linear-gradient(135deg, var(--surface2), var(--surface3));
+  border: 1px solid rgba(124,110,250,0.35);
+  border-radius: 20px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 8000;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(124,110,250,0.1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s cubic-bezier(0.22,1,0.36,1), transform 0.45s cubic-bezier(0.22,1,0.36,1);
+}
+#pwa-banner.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.pwa-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary), #9F8BFF);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px var(--primary-glow);
+}
+.pwa-text { flex: 1; min-width: 0; }
+.pwa-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.3;
+  margin-bottom: 2px;
+}
+.pwa-desc {
+  font-size: 11px;
+  color: var(--text3);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.pwa-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+.btn-pwa-add {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 7px 13px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px var(--primary-glow);
+  transition: transform 0.13s cubic-bezier(0.34,1.56,0.64,1);
+}
+.btn-pwa-add:active { transform: scale(0.93); }
+.btn-pwa-dismiss {
+  background: none;
+  border: none;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  cursor: pointer;
+  touch-action: manipulation;
+  padding: 2px 4px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 
 /* ══════════════════════════════════════════
@@ -1413,7 +1686,7 @@ html, body {
 }
 #swipe-guide.guide-visible {
   opacity: 1;
-  pointer-events: all;
+  pointer-events: auto;
 }
 #swipe-guide.guide-dismiss {
   opacity: 0;
@@ -1681,10 +1954,17 @@ html, body {
     <div class="header-row">
       <span class="course-label">🎓 멀티미디어소프트웨어개론 · 3주차 강의 녹음본</span>
       <div class="ai-badge">🤖 AI 추출</div>
-      <div class="xp-chip">
-        <span>⚡</span>
-        <span class="xp-val" id="xpVal">0 XP</span>
+      <!-- 피드백 반영: 레벨 시스템 -->
+      <div class="xp-chip" id="xpChip">
+        <div class="xp-chip-top">
+          <span class="xp-level-badge" id="xpLevel">⚡ Lv.1</span>
+          <span class="xp-val" id="xpVal">0/50 XP</span>
+        </div>
+        <div class="xp-bar-track">
+          <div class="xp-bar-fill" id="xpBarFill"></div>
+        </div>
       </div>
+      <!-- /피드백 반영: 레벨 시스템 -->
     </div>
     <div class="prog-row">
       <span class="prog-label" id="progLabel">1단계</span>
@@ -1787,9 +2067,38 @@ html, body {
     </button>
   </nav>
 
-</div>
+</div><!-- /#app -->
 
 <div class="toast" id="toast"></div>
+
+<!-- 피드백 반영: 레벨 시스템 — 레벨업 모달 -->
+<canvas id="confetti-canvas"></canvas>
+<div id="levelup-modal">
+  <div class="lv-backdrop"></div>
+  <div class="lv-card">
+    <div class="lv-glow-ring" id="lvEmoji">🏆</div>
+    <div class="lv-up-label">LEVEL UP!</div>
+    <div class="lv-title" id="lvTitle">Lv.2 달성!</div>
+    <div class="lv-sub" id="lvSub">한 단계 더 성장했어요 🎉</div>
+    <div class="lv-xp-row">⚡ 다음 레벨까지 <span id="lvNextXp">50</span> XP</div>
+    <button class="btn-lv-close" id="btnLvClose">계속 학습하기 →</button>
+  </div>
+</div>
+<!-- /피드백 반영: 레벨 시스템 -->
+
+<!-- 피드백 반영: PWA 설치 유도 -->
+<div id="pwa-banner">
+  <div class="pwa-icon">🎓</div>
+  <div class="pwa-text">
+    <div class="pwa-title">📱 앱으로 설치하기</div>
+    <div class="pwa-desc">홈 화면에 추가해서<br>진짜 앱처럼 사용해보세요!</div>
+  </div>
+  <div class="pwa-actions">
+    <button class="btn-pwa-add" id="btnPwaAdd">추가하기</button>
+    <button class="btn-pwa-dismiss" id="btnPwaDismiss">나중에</button>
+  </div>
+</div>
+<!-- /피드백 반영: PWA 설치 유도 -->
 
 <script>
 /* ══════════════════════════════════════════
@@ -1931,6 +2240,9 @@ function startApp() {
 
     // Show swipe guide after stages are ready
     setTimeout(showSwipeGuide, 320);
+
+    // 피드백 반영: PWA 설치 유도
+    showPwaBanner();
   }, 180);
 }
 
@@ -1970,15 +2282,38 @@ document.querySelectorAll('.fmt-chip').forEach(chip => {
 });
 
 /* ══════════════════════════════════════════
-   HEADER
+   피드백 반영: 레벨 시스템 — XP & 레벨 상태
 ══════════════════════════════════════════ */
-function updateHeader() {
-  document.getElementById('xpVal').textContent = xp + ' XP';
+const XP_PER_LEVEL = 50;
+let currentLevel = 1;
+let prevLeveledXp = 0; // total XP at last level boundary
 
+function getLevelFromXp(totalXp) {
+  return Math.floor(totalXp / XP_PER_LEVEL) + 1;
+}
+
+function updateHeader() {
+  const newLevel = getLevelFromXp(xp);
+  const xpInLevel = xp % XP_PER_LEVEL;
+  const pct = (xpInLevel / XP_PER_LEVEL) * 100;
+
+  // Check for level up
+  if (newLevel > currentLevel) {
+    const reachedLevel = newLevel;
+    currentLevel = newLevel;
+    setTimeout(() => showLevelUpModal(reachedLevel), 200);
+  }
+
+  // Update XP chip
+  document.getElementById('xpLevel').textContent = '⚡ Lv.' + currentLevel;
+  document.getElementById('xpVal').textContent = xpInLevel + '/' + XP_PER_LEVEL + ' XP';
+  document.getElementById('xpBarFill').style.width = pct + '%';
+
+  // Update stage progress bar
   const labels = { 1:'1단계 · 단어 암기', 2:'2단계 · 문장 분석', 3:'3단계 · 실전 퀴즈' };
   document.getElementById('progLabel').textContent = labels[curStage];
 
-  let pct = 0, cur = 0, tot = 1;
+  let stagePct = 0, cur = 0, tot = 1;
   if (curStage === 1) {
     tot = s1Total; cur = s1Done;
   } else if (curStage === 2) {
@@ -1988,8 +2323,8 @@ function updateHeader() {
     tot = S3_DATA.length;
     cur = Object.values(s3St).filter(s => s.done).length;
   }
-  pct = tot ? (cur / tot) * 100 : 0;
-  document.getElementById('progFill').style.width = pct + '%';
+  stagePct = tot ? (cur / tot) * 100 : 0;
+  document.getElementById('progFill').style.width = stagePct + '%';
   document.getElementById('progCount').textContent = cur + '/' + tot;
 }
 
@@ -2456,6 +2791,155 @@ function toast(msg) {
   clearTimeout(toastTid);
   toastTid = setTimeout(() => el.classList.remove('up'), 2300);
 }
+
+/* ══════════════════════════════════════════
+   피드백 반영: 레벨 시스템 — 레벨업 모달 & 폭죽
+══════════════════════════════════════════ */
+const LEVEL_EMOJIS = ['⚡','🌟','🔥','💎','👑','🚀','🎯','🏆','✨','🌈'];
+const LEVEL_SUBS   = [
+  '시작이 반이에요!',
+  '꾸준히 성장하고 있어요!',
+  '실력이 느껴지기 시작해요!',
+  '대단한 집중력이에요!',
+  '어느새 중급자가 됐어요!',
+  '상위 10% 학습자예요!',
+  '거의 마스터에 가까워요!',
+  '완전히 꿰뚫고 있어요!',
+  '전설적인 학습자예요!',
+  '당신은 완전한 마스터! 🏆',
+];
+
+function showLevelUpModal(level) {
+  const modal  = document.getElementById('levelup-modal');
+  const canvas = document.getElementById('confetti-canvas');
+  const emoji  = LEVEL_EMOJIS[(level - 1) % LEVEL_EMOJIS.length];
+  const sub    = LEVEL_SUBS[(level - 2) % LEVEL_SUBS.length] || '한 단계 더 성장했어요!';
+
+  document.getElementById('lvEmoji').textContent   = emoji;
+  document.getElementById('lvTitle').textContent   = 'Lv.' + level + ' 달성!';
+  document.getElementById('lvSub').textContent     = sub;
+  document.getElementById('lvNextXp').textContent  = XP_PER_LEVEL;
+
+  // Show
+  modal.classList.add('show');
+  canvas.classList.add('show');
+  startConfetti(canvas);
+}
+
+document.getElementById('btnLvClose').addEventListener('click', () => {
+  const modal  = document.getElementById('levelup-modal');
+  const canvas = document.getElementById('confetti-canvas');
+  modal.classList.remove('show');
+  canvas.classList.remove('show');
+  stopConfetti();
+});
+
+// ── Confetti Engine ──────────────────────
+let confettiAF = null;
+let confettiParticles = [];
+
+function startConfetti(canvas) {
+  stopConfetti();
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const colors = ['#7C6EFA','#F9BC4A','#2DD4A0','#F26B6B','#A78BFA','#FFDA6A','#60E0FF'];
+
+  // Spawn particles
+  confettiParticles = Array.from({ length: 110 }, () => ({
+    x:    Math.random() * canvas.width,
+    y:    Math.random() * canvas.height * -0.5 - 20,
+    vx:   (Math.random() - 0.5) * 5,
+    vy:   Math.random() * 3 + 2,
+    rot:  Math.random() * 360,
+    vrot: (Math.random() - 0.5) * 8,
+    w:    Math.random() * 8 + 4,
+    h:    Math.random() * 5 + 3,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    alpha: 1,
+    shape: Math.random() > 0.5 ? 'rect' : 'circle',
+  }));
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    confettiParticles.forEach(p => {
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle   = p.color;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * Math.PI / 180);
+      if (p.shape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(0, 0, p.w / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      }
+      ctx.restore();
+
+      p.x   += p.vx;
+      p.y   += p.vy;
+      p.vy  += 0.07; // gravity
+      p.vx  *= 0.99;
+      p.rot += p.vrot;
+      if (p.y > canvas.height * 0.7) p.alpha -= 0.02;
+    });
+    confettiParticles = confettiParticles.filter(p => p.alpha > 0);
+    if (confettiParticles.length > 0) {
+      confettiAF = requestAnimationFrame(draw);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+  confettiAF = requestAnimationFrame(draw);
+}
+
+function stopConfetti() {
+  if (confettiAF) { cancelAnimationFrame(confettiAF); confettiAF = null; }
+  confettiParticles = [];
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+/* ══════════════════════════════════════════
+   피드백 반영: PWA 설치 유도 — 배너 로직
+══════════════════════════════════════════ */
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+
+function showPwaBanner() {
+  // Don't show if already installed (standalone mode)
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  // Don't show if user dismissed before
+  if (sessionStorage.getItem('pwa-dismissed')) return;
+
+  const banner = document.getElementById('pwa-banner');
+  setTimeout(() => banner.classList.add('show'), 900);
+}
+
+document.getElementById('btnPwaAdd').addEventListener('click', () => {
+  const banner = document.getElementById('pwa-banner');
+  banner.classList.remove('show');
+
+  if (deferredInstallPrompt) {
+    // Chrome/Android native install
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(() => { deferredInstallPrompt = null; });
+  } else {
+    // iOS / fallback — show a guidance toast
+    toast('📱 Safari → 공유(□↑) → 홈 화면에 추가');
+  }
+});
+
+document.getElementById('btnPwaDismiss').addEventListener('click', () => {
+  document.getElementById('pwa-banner').classList.remove('show');
+  sessionStorage.setItem('pwa-dismissed', '1');
+});
 
 /* ══════════════════════════════════════════
    MOBILE: Dynamic Viewport Height Fix
